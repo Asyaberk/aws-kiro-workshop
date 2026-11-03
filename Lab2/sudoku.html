@@ -5,136 +5,430 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Sudoku</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ── Reset & tokens ──────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      /* Soft warm-neutral palette — easy on the eyes */
+      --bg:            #f0ede8;
+      --surface:       #faf8f5;
+      --surface-alt:   #ede9e3;
+      --border-light:  #d6cfc6;
+      --border-box:    #8b7d6b;
+      --border-board:  #5c4f3d;
+
+      /* Cell states */
+      --cell-given-bg:   #e8e2d9;
+      --cell-given-fg:   #2d2419;
+      --cell-user-fg:    #1a4f8a;
+      --cell-hover:      #dff0fb;
+      --cell-selected:   #b8d8f5;
+      --cell-peer:       #deeef9;
+      --cell-same-num:   #c2dff5;
+      --cell-error-bg:   #fde8e8;
+      --cell-error-fg:   #c0392b;
+      --cell-done-bg:    #e6f4ea;
+
+      /* Accent */
+      --accent:        #2980b9;
+      --accent-dark:   #1a5f8a;
+      --success:       #27ae60;
+      --danger:        #e74c3c;
+      --warning:       #e67e22;
+
+      /* Typography */
+      --font-ui:   'Segoe UI', system-ui, -apple-system, sans-serif;
+
+      /* Sizes — fluid cell size clamped between mobile/desktop */
+      --cell-size:  clamp(34px, 8vw, 56px);
+      --cell-font:  clamp(0.95rem, 2.5vw, 1.35rem);
+    }
+
+    /* ── Base ───────────────────────────────────────────────────────────── */
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #1a1a2e;
-      color: #eee;
+      font-family: var(--font-ui);
+      background: var(--bg);
+      color: #2d2419;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
+      padding: clamp(12px, 4vw, 32px) 16px 32px;
+      gap: 0;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 18px;
     }
 
     h1 {
-      font-size: 2rem;
-      margin-bottom: 10px;
-      color: #e94560;
-      letter-spacing: 3px;
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
+      color: var(--border-board);
+      line-height: 1;
     }
 
+    h1 span {
+      color: var(--accent);
+    }
+
+    /* ── Info panel ─────────────────────────────────────────────────────── */
+    #info-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 16px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      padding: 8px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 90px;
+      flex: 1;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      transition: box-shadow 0.2s;
+    }
+
+    .info-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,.10);
+    }
+
+    .info-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #9e8f7d;
+      margin-bottom: 3px;
+    }
+
+    .info-value {
+      font-size: clamp(1rem, 3vw, 1.25rem);
+      font-weight: 700;
+      color: var(--border-board);
+    }
+
+    #info-difficulty .info-value { color: var(--accent-dark); }
+    #info-mistakes   .info-value { color: var(--danger); }
+    #info-progress   .info-value { color: var(--success); }
+
+    /* ── Status bar ─────────────────────────────────────────────────────── */
     #status {
-      height: 24px;
-      margin-bottom: 12px;
-      font-size: 0.95rem;
-      color: #a0e7a0;
+      height: 28px;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity 0.3s;
+    }
+
+    #status.fade { opacity: 0; }
+
+    /* ── Difficulty selector ─────────────────────────────────────────────── */
+    #difficulty-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      justify-content: center;
+    }
+
+    .diff-btn {
+      padding: 5px 16px;
+      border: 2px solid var(--border-light);
+      border-radius: 20px;
+      background: var(--surface);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      color: #7a6e62;
+      transition: all 0.18s;
+    }
+
+    .diff-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .diff-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* ── Board ──────────────────────────────────────────────────────────── */
+    #board-wrap {
+      position: relative;
     }
 
     #board {
       display: grid;
-      grid-template-columns: repeat(9, 54px);
-      grid-template-rows: repeat(9, 54px);
-      border: 3px solid #e94560;
+      grid-template-columns: repeat(9, var(--cell-size));
+      grid-template-rows:    repeat(9, var(--cell-size));
+      border: 3px solid var(--border-board);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,.12);
       gap: 0;
     }
 
+    /* ── Cells ──────────────────────────────────────────────────────────── */
     .cell {
-      width: 54px;
-      height: 54px;
+      width:  var(--cell-size);
+      height: var(--cell-size);
       text-align: center;
-      font-size: 1.3rem;
+      font-size: var(--cell-font);
       font-weight: 600;
-      background: #16213e;
-      color: #e0e0e0;
-      border: 1px solid #2a2a5a;
+      background: var(--surface);
+      color: var(--cell-user-fg);
+      border: 1px solid var(--border-light);
       cursor: pointer;
       outline: none;
-      transition: background 0.15s;
       caret-color: transparent;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+      /* Prevent text selection flicker on mobile tap */
+      user-select: none;
+      -webkit-user-select: none;
     }
 
-    /* Bold borders for 3x3 boxes */
-    .cell:nth-child(3n) { border-right: 2px solid #e94560; }
-    .cell:nth-child(9n) { border-right: none; }
+    /* Right border of columns 3 and 6 (0-indexed: col 2, 5) */
+    .cell[data-c="2"],
+    .cell[data-c="5"] { border-right: 2px solid var(--border-box); }
 
-    /* Row borders — rows 3 and 6 bottom */
-    .cell.row-3, .cell.row-6 { border-bottom: 2px solid #e94560; }
+    /* Bottom border of rows 3 and 6 (0-indexed: row 2, 5) */
+    .cell[data-r="2"],
+    .cell[data-r="5"] { border-bottom: 2px solid var(--border-box); }
 
+    /* Given (clue) cells */
     .cell.given {
-      color: #e94560;
+      background: var(--cell-given-bg);
+      color: var(--cell-given-fg);
       cursor: default;
-      background: #0f172a;
+      font-weight: 700;
     }
 
-    .cell:not(.given):hover { background: #1e3a5f; }
-    .cell.selected { background: #1e3a8f !important; }
-    .cell.highlight { background: #1e2a5f; }
-    .cell.error { color: #ff6b6b !important; }
+    /* Interaction states (applied via JS) */
+    .cell:not(.given):hover:not(.selected) { background: var(--cell-hover); }
+    .cell.peer    { background: var(--cell-peer); }
+    .cell.same-num { background: var(--cell-same-num); }
+    .cell.selected { background: var(--cell-selected) !important; box-shadow: inset 0 0 0 2px var(--accent); }
 
-    #controls {
-      display: flex;
-      gap: 12px;
-      margin-top: 20px;
-      flex-wrap: wrap;
-      justify-content: center;
+    /* Error */
+    .cell.error {
+      background: var(--cell-error-bg) !important;
+      color: var(--cell-error-fg) !important;
     }
 
-    button {
-      padding: 10px 22px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
+    /* Completed group flash */
+    .cell.group-done {
+      background: var(--cell-done-bg) !important;
+      animation: group-flash 0.6s ease;
     }
 
-    button:active { transform: scale(0.96); }
+    /* ── Animations ─────────────────────────────────────────────────────── */
 
-    #btn-new    { background: #e94560; color: #fff; }
-    #btn-check  { background: #0f3460; color: #fff; }
-    #btn-solve  { background: #533483; color: #fff; }
-    #btn-clear  { background: #2a2a5a; color: #ccc; }
+    /* Cell pop-in when a number is placed */
+    @keyframes pop {
+      0%   { transform: scale(0.65); opacity: 0.4; }
+      60%  { transform: scale(1.12); }
+      100% { transform: scale(1);    opacity: 1; }
+    }
 
-    button:hover { opacity: 0.85; }
+    .cell.pop { animation: pop 0.22s cubic-bezier(.36,.07,.19,.97) both; }
 
+    /* Completed group flash */
+    @keyframes group-flash {
+      0%,100% { background: var(--cell-done-bg); }
+      50%     { background: #b7e4c7; }
+    }
+
+    /* Error shake */
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%     { transform: translateX(-4px); }
+      40%     { transform: translateX( 4px); }
+      60%     { transform: translateX(-3px); }
+      80%     { transform: translateX( 3px); }
+    }
+
+    .cell.shake { animation: shake 0.3s ease; }
+
+    /* ── Numpad ─────────────────────────────────────────────────────────── */
     #numpad {
       display: grid;
-      grid-template-columns: repeat(5, 50px);
+      grid-template-columns: repeat(5, clamp(38px, 9vw, 52px));
       gap: 8px;
       margin-top: 16px;
     }
 
     .num-btn {
-      width: 50px;
-      height: 50px;
-      font-size: 1.2rem;
-      background: #0f3460;
-      color: #eee;
+      height: clamp(38px, 9vw, 52px);
+      font-size: clamp(1rem, 3vw, 1.25rem);
+      font-weight: 700;
+      background: var(--surface);
+      color: var(--cell-user-fg);
+      border: 2px solid var(--border-light);
       border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
     }
 
-    .num-btn.erase { background: #2a2a5a; font-size: 1rem; }
+    .num-btn:hover { background: var(--cell-hover); border-color: var(--accent); }
+    .num-btn:active { transform: scale(0.92); }
 
-    @media (max-width: 540px) {
-      #board { grid-template-columns: repeat(9, 36px); grid-template-rows: repeat(9, 36px); }
-      .cell { width: 36px; height: 36px; font-size: 1rem; }
-      #numpad { grid-template-columns: repeat(5, 44px); }
-      .num-btn { width: 44px; height: 44px; }
+    .num-btn.erase {
+      background: var(--surface-alt);
+      color: #7a6e62;
+      font-size: clamp(0.85rem, 2.5vw, 1rem);
+    }
+
+    /* Highlight numpad key matching selected number */
+    .num-btn.active-num {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* ── Controls ───────────────────────────────────────────────────────── */
+    #controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      padding: 9px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.12s, box-shadow 0.15s;
+      letter-spacing: 0.04em;
+    }
+
+    button:active { transform: scale(0.94); }
+    button:hover  { opacity: 0.88; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+
+    #btn-new   { background: var(--accent);   color: #fff; }
+    #btn-check { background: var(--success);  color: #fff; }
+    #btn-solve { background: var(--warning);  color: #fff; }
+    #btn-clear { background: var(--surface-alt); color: #5c4f3d; border: 1px solid var(--border-light); }
+
+    /* ── Completion overlay ─────────────────────────────────────────────── */
+    #complete-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(240,237,232,0.88);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #complete-overlay.show { display: flex; }
+
+    #complete-overlay h2 {
+      font-size: 2rem;
+      color: var(--success);
+      animation: pop 0.4s ease;
+    }
+
+    #complete-overlay p {
+      font-size: 1rem;
+      color: #5c4f3d;
+    }
+
+    #btn-new-overlay {
+      background: var(--accent);
+      color: #fff;
+      padding: 11px 32px;
+      font-size: 1rem;
+    }
+
+    /* ── Keyboard hint ──────────────────────────────────────────────────── */
+    #kbd-hint {
+      margin-top: 14px;
+      font-size: 0.72rem;
+      color: #b0a090;
+      text-align: center;
+    }
+
+    #kbd-hint kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid #c8bfb0;
+      border-radius: 3px;
+      background: var(--surface);
+      font-family: var(--font-ui);
+      font-size: 0.7rem;
     }
   </style>
 </head>
 <body>
 
-<h1>Sudoku</h1>
-<div id="status"></div>
-<div id="board"></div>
+<!-- Header -->
+<header>
+  <h1>Su<span>do</span>ku</h1>
+</header>
 
+<!-- Difficulty selector -->
+<div id="difficulty-bar">
+  <button class="diff-btn" data-clues="46">Easy</button>
+  <button class="diff-btn active" data-clues="36">Medium</button>
+  <button class="diff-btn" data-clues="27">Hard</button>
+  <button class="diff-btn" data-clues="22">Expert</button>
+</div>
+
+<!-- Info panel -->
+<div id="info-panel">
+  <div class="info-card" id="info-difficulty">
+    <span class="info-label">Difficulty</span>
+    <span class="info-value" id="val-difficulty">Medium</span>
+  </div>
+  <div class="info-card" id="info-timer">
+    <span class="info-label">Time</span>
+    <span class="info-value" id="val-timer">0:00</span>
+  </div>
+  <div class="info-card" id="info-mistakes">
+    <span class="info-label">Mistakes</span>
+    <span class="info-value" id="val-mistakes">0</span>
+  </div>
+  <div class="info-card" id="info-progress">
+    <span class="info-label">Progress</span>
+    <span class="info-value" id="val-progress">0%</span>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div id="status"></div>
+
+<!-- Board -->
+<div id="board-wrap">
+  <div id="board"></div>
+</div>
+
+<!-- Numpad -->
 <div id="numpad">
   <button class="num-btn" data-n="1">1</button>
   <button class="num-btn" data-n="2">2</button>
@@ -145,9 +439,10 @@
   <button class="num-btn" data-n="7">7</button>
   <button class="num-btn" data-n="8">8</button>
   <button class="num-btn" data-n="9">9</button>
-  <button class="num-btn erase" data-n="0">⌫</button>
+  <button class="num-btn erase" data-n="0">⌫ Erase</button>
 </div>
 
+<!-- Controls -->
 <div id="controls">
   <button id="btn-new">New Game</button>
   <button id="btn-check">Check</button>
@@ -155,289 +450,890 @@
   <button id="btn-clear">Clear</button>
 </div>
 
+<!-- Keyboard hint -->
+<p id="kbd-hint">
+  <kbd>↑ ↓ ← →</kbd> navigate &nbsp;·&nbsp;
+  <kbd>1–9</kbd> enter number &nbsp;·&nbsp;
+  <kbd>Del</kbd>/<kbd>Backspace</kbd> erase
+</p>
+
+<!-- Completion overlay -->
+<div id="complete-overlay">
+  <h2>🎉 Puzzle Solved!</h2>
+  <p id="complete-stats"></p>
+  <button id="btn-new-overlay">Play Again</button>
+</div>
+
 <script>
-// ─── Puzzle generation ────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYER 1 — SudokuEngine
+   Pure functions only. No DOM access, no side effects, no shared state.
+   All functions receive grids as arguments and return new values.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
+const SudokuEngine = (() => {
 
-function generateSolution() {
-  const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
-  fillGrid(grid);
-  return grid;
-}
-
-function fillGrid(grid) {
-  const empty = findEmpty(grid);
-  if (!empty) return true;
-  const [r, c] = empty;
-  const nums = shuffle([1,2,3,4,5,6,7,8,9]);
-  for (const n of nums) {
-    if (isValid(grid, r, c, n)) {
-      grid[r][c] = n;
-      if (fillGrid(grid)) return true;
-      grid[r][c] = 0;
+  /** Fisher-Yates in-place shuffle. Returns the same array. */
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+    return arr;
   }
-  return false;
-}
 
-function findEmpty(grid) {
-  for (let r = 0; r < 9; r++)
-    for (let c = 0; c < 9; c++)
-      if (grid[r][c] === 0) return [r, c];
-  return null;
-}
+  /** Returns [r, c] of the first zero cell, or null if the grid is full. */
+  function findEmpty(grid) {
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (grid[r][c] === 0) return [r, c];
+    return null;
+  }
 
-function isValid(grid, r, c, n) {
-  if (grid[r].includes(n)) return false;
-  if (grid.some(row => row[c] === n)) return false;
-  const br = Math.floor(r / 3) * 3;
-  const bc = Math.floor(c / 3) * 3;
-  for (let i = br; i < br + 3; i++)
-    for (let j = bc; j < bc + 3; j++)
-      if (grid[i][j] === n) return false;
-  return true;
-}
+  /**
+   * Returns true if placing n at (r, c) does not violate Sudoku rules.
+   * Assumes grid[r][c] is currently 0.
+   */
+  function isPlacementValid(grid, r, c, n) {
+    if (grid[r].includes(n)) return false;
+    if (grid.some(row => row[c] === n)) return false;
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for (let i = br; i < br + 3; i++)
+      for (let j = bc; j < bc + 3; j++)
+        if (grid[i][j] === n) return false;
+    return true;
+  }
 
-function createPuzzle(solution, clues = 36) {
-  const puzzle = solution.map(row => [...row]);
-  const cells = shuffle([...Array(81).keys()]);
-  let removed = 0;
-  for (const idx of cells) {
-    if (removed >= 81 - clues) break;
-    const r = Math.floor(idx / 9), c = idx % 9;
-    const backup = puzzle[r][c];
-    puzzle[r][c] = 0;
-    // Verify unique solution (simple attempt)
+  /** Recursive backtracker — fills grid in-place. Returns true on success. */
+  function fillGrid(grid) {
+    const empty = findEmpty(grid);
+    if (!empty) return true;
+    const [r, c] = empty;
+    for (const n of shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9])) {
+      if (isPlacementValid(grid, r, c, n)) {
+        grid[r][c] = n;
+        if (fillGrid(grid)) return true;
+        grid[r][c] = 0;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Generates a fully-solved 9×9 grid.
+   * Throws if the backtracker fails (should never happen, but lets the
+   * caller handle it gracefully).
+   */
+  function generateSolution() {
+    const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+    if (!fillGrid(grid)) throw new Error('Failed to generate a valid Sudoku solution.');
+    return grid;
+  }
+
+  /**
+   * Counts up to `limit` solutions. Used to verify puzzle uniqueness.
+   * Short-circuits as soon as the count reaches the limit.
+   */
+  function countSolutions(grid, limit) {
+    const empty = findEmpty(grid);
+    if (!empty) return 1;
+    const [r, c] = empty;
+    let count = 0;
+    for (let n = 1; n <= 9; n++) {
+      if (isPlacementValid(grid, r, c, n)) {
+        grid[r][c] = n;
+        count += countSolutions(grid, limit);
+        grid[r][c] = 0;
+        if (count >= limit) return count;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Derives a puzzle from a solution by removing cells one at a time
+   * while maintaining a unique solution. `clues` is the number of cells
+   * to keep (higher = easier).
+   */
+  function createPuzzle(solution, clues = 36) {
+    const puzzle = solution.map(row => [...row]);
+    const cells  = shuffle([...Array(81).keys()]);
+    let removed  = 0;
+    for (const idx of cells) {
+      if (removed >= 81 - clues) break;
+      const r = Math.floor(idx / 9), c = idx % 9;
+      const backup = puzzle[r][c];
+      puzzle[r][c] = 0;
+      if (countSolutions(puzzle.map(row => [...row]), 2) === 1) {
+        removed++;
+      } else {
+        puzzle[r][c] = backup; // removing this cell breaks uniqueness — restore
+      }
+    }
+    return puzzle;
+  }
+
+  /** Solves grid in-place. Returns true if a solution exists. */
+  function solve(grid) {
+    const empty = findEmpty(grid);
+    if (!empty) return true;
+    const [r, c] = empty;
+    for (let n = 1; n <= 9; n++) {
+      if (isPlacementValid(grid, r, c, n)) {
+        grid[r][c] = n;
+        if (solve(grid)) return true;
+        grid[r][c] = 0;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns the indices of all cells that share a row, column, or 3×3 box
+   * with (r, c), not including (r, c) itself.
+   */
+  function getPeers(r, c) {
+    const peers = new Set();
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for (let i = 0; i < 9; i++) {
+      peers.add(r * 9 + i);           // same row
+      peers.add(i * 9 + c);           // same column
+      peers.add((br + Math.floor(i / 3)) * 9 + (bc + (i % 3))); // same box
+    }
+    peers.delete(r * 9 + c);          // remove self
+    return [...peers].map(idx => [Math.floor(idx / 9), idx % 9]);
+  }
+
+  /**
+   * Returns the 9 cell coordinates for the row, column, and box that
+   * contain (r, c).
+   */
+  function getGroups(r, c) {
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    const row = Array.from({ length: 9 }, (_, j) => [r, j]);
+    const col = Array.from({ length: 9 }, (_, i) => [i, c]);
+    const box = [];
+    for (let i = br; i < br + 3; i++)
+      for (let j = bc; j < bc + 3; j++)
+        box.push([i, j]);
+    return { row, col, box };
+  }
+
+  return { generateSolution, createPuzzle, solve, getPeers, getGroups, isPlacementValid };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYER 2 — GameState
+   Owns all mutable game data. Exposes methods that enforce rules and
+   return structured result objects that BoardUI can act on.
+   Never touches the DOM.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const DIFFICULTIES = {
+  Easy:   46,
+  Medium: 36,
+  Hard:   27,
+  Expert: 22,
+};
+
+const GameState = (() => {
+
+  // ── Private state ────────────────────────────────────────────────────────
+  let solution  = [];
+  let puzzle    = [];
+  let userGrid  = [];
+  let selected  = null;  // [r, c] or null
+  let mistakes  = 0;
+  let timerSec  = 0;
+  let timerID   = null;
+  let gameOver  = false;
+  let diffName  = 'Medium';
+  let clues     = DIFFICULTIES['Medium'];
+
+  // ── Timer ────────────────────────────────────────────────────────────────
+
+  function startTimer(onTick) {
+    stopTimer();
+    timerSec = 0;
+    timerID  = setInterval(() => { timerSec++; onTick(timerSec); }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerID);
+    timerID = null;
+  }
+
+  // ── Queries (read-only helpers) ──────────────────────────────────────────
+
+  function getCell(r, c)  { return userGrid[r]?.[c] ?? puzzle[r]?.[c] ?? 0; }
+  function isGiven(r, c)  { return puzzle[r][c] !== 0; }
+  function isSolved(r, c) { return getCell(r, c) === solution[r][c]; }
+
+  function computeProgress() {
+    const blanks = puzzle.flat().filter(v => v === 0).length;
+    if (blanks === 0) return 100;
+    let filled = 0;
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (puzzle[r][c] === 0 && userGrid[r][c] !== 0) filled++;
+    return Math.round((filled / blanks) * 100);
+  }
+
+  function isPuzzleComplete() {
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (getCell(r, c) !== solution[r][c]) return false;
+    return true;
+  }
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+
+  /**
+   * Initialises a new game. Accepts an optional onTick callback for the
+   * timer so GameState never touches the DOM itself.
+   * Returns the initial snapshot used to render the board.
+   */
+  function start(name, onTick) {
+    if (!DIFFICULTIES[name]) throw new Error(`Unknown difficulty: ${name}`);
+    diffName = name;
+    clues    = DIFFICULTIES[name];
+    gameOver = false;
+    mistakes = 0;
+    selected = null;
+    solution = SudokuEngine.generateSolution();
+    puzzle   = SudokuEngine.createPuzzle(solution, clues);
+    userGrid = puzzle.map(row => [...row]);
+    startTimer(onTick);
+    return snapshot();
+  }
+
+  /**
+   * Selects a cell. Returns the new selection and highlight sets.
+   */
+  function select(r, c) {
+    selected = [r, c];
+    return buildHighlightMap(r, c);
+  }
+
+  /**
+   * Attempts to place value n at (r, c).
+   * Returns a result object describing what happened so BoardUI can react.
+   *
+   * Result shape:
+   * {
+   *   ok: boolean,          — was the placement allowed (not given, not gameOver)
+   *   correct: boolean,     — does n match the solution
+   *   erased: boolean,      — was n === 0 (erase action)
+   *   r, c, n,
+   *   mistakes: number,
+   *   progress: number,
+   *   complete: boolean,
+   *   completedGroups: [],  — arrays of [r,c] pairs for any newly finished group
+   *   highlights: {},       — updated highlight map
+   *   finalTime: string|null
+   * }
+   */
+  function enterValue(r, c, n) {
+    if (gameOver || isGiven(r, c)) {
+      return { ok: false };
+    }
+
+    userGrid[r][c] = n;
+    const erased  = n === 0;
+    const correct = erased || (n === solution[r][c]);
+
+    if (!correct) mistakes++;
+
+    const complete        = !erased && isPuzzleComplete();
+    const completedGroups = (!erased && correct) ? findNewlyCompletedGroups(r, c) : [];
+
+    if (complete) {
+      gameOver = true;
+      stopTimer();
+    }
+
+    return {
+      ok: true,
+      correct,
+      erased,
+      r, c, n,
+      mistakes,
+      progress:        computeProgress(),
+      complete,
+      completedGroups,
+      highlights:      selected ? buildHighlightMap(selected[0], selected[1]) : {},
+      finalTime:       complete ? formatTime(timerSec) : null,
+    };
+  }
+
+  /**
+   * Scans all user-entered cells and returns counts of errors.
+   * Does not mutate state; BoardUI applies the visual marks.
+   */
+  function check() {
+    const errors = [];
+    const correct = [];
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (isGiven(r, c)) continue;
+        if (userGrid[r][c] !== 0 && userGrid[r][c] !== solution[r][c]) {
+          errors.push([r, c]);
+        } else if (userGrid[r][c] !== 0) {
+          correct.push([r, c]);
+        }
+      }
+    }
+    return { errors, correct, allFilled: computeProgress() === 100 };
+  }
+
+  /**
+   * Solves the puzzle and returns the completed grid values so BoardUI
+   * can update each cell.
+   */
+  function autoSolve() {
     const copy = puzzle.map(row => [...row]);
-    if (countSolutions(copy, 2) === 1) {
-      removed++;
-    } else {
-      puzzle[r][c] = backup;
-    }
+    SudokuEngine.solve(copy);
+    for (let r = 0; r < 9; r++)
+      userGrid[r] = [...copy[r]];
+    gameOver = true;
+    stopTimer();
+    return { grid: copy, progress: 100 };
   }
-  return puzzle;
-}
 
-function countSolutions(grid, limit) {
-  const empty = findEmpty(grid);
-  if (!empty) return 1;
-  const [r, c] = empty;
-  let count = 0;
-  for (let n = 1; n <= 9; n++) {
-    if (isValid(grid, r, c, n)) {
-      grid[r][c] = n;
-      count += countSolutions(grid, limit);
-      grid[r][c] = 0;
-      if (count >= limit) return count;
-    }
-  }
-  return count;
-}
-
-function solvePuzzle(grid) {
-  const empty = findEmpty(grid);
-  if (!empty) return true;
-  const [r, c] = empty;
-  for (let n = 1; n <= 9; n++) {
-    if (isValid(grid, r, c, n)) {
-      grid[r][c] = n;
-      if (solvePuzzle(grid)) return true;
-      grid[r][c] = 0;
-    }
-  }
-  return false;
-}
-
-// ─── App state ────────────────────────────────────────────────────────────────
-
-let solution = [];
-let puzzle   = [];
-let userGrid = [];
-let selected = null; // [r, c]
-
-// ─── DOM ──────────────────────────────────────────────────────────────────────
-
-const boardEl  = document.getElementById('board');
-const statusEl = document.getElementById('status');
-
-function buildBoard() {
-  boardEl.innerHTML = '';
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const cell = document.createElement('input');
-      cell.type = 'text';
-      cell.maxLength = 1;
-      cell.className = 'cell';
-      if (r === 2 || r === 5) cell.classList.add('row-3');
-      if (r === 5) cell.classList.add('row-6');
-      cell.dataset.r = r;
-      cell.dataset.c = c;
-
-      if (puzzle[r][c] !== 0) {
-        cell.value = puzzle[r][c];
-        cell.classList.add('given');
-        cell.readOnly = true;
-      }
-
-      cell.addEventListener('focus', () => selectCell(r, c));
-      cell.addEventListener('keydown', onKeyDown);
-      cell.addEventListener('input', onInput);
-
-      boardEl.appendChild(cell);
-    }
-  }
-}
-
-function getCell(r, c) {
-  return boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
-}
-
-function selectCell(r, c) {
-  selected = [r, c];
-  highlightCells(r, c);
-}
-
-function highlightCells(r, c) {
-  const br = Math.floor(r / 3) * 3;
-  const bc = Math.floor(c / 3) * 3;
-  for (let i = 0; i < 9; i++) {
-    for (let j = 0; j < 9; j++) {
-      const cell = getCell(i, j);
-      cell.classList.remove('selected', 'highlight');
-      if (i === r && j === c) {
-        cell.classList.add('selected');
-      } else if (
-        i === r || j === c ||
-        (i >= br && i < br + 3 && j >= bc && j < bc + 3)
-      ) {
-        cell.classList.add('highlight');
+  /** Clears all user-entered cells. Returns list of cleared positions. */
+  function clear() {
+    const cleared = [];
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (!isGiven(r, c) && userGrid[r][c] !== 0) {
+          userGrid[r][c] = 0;
+          cleared.push([r, c]);
+        }
       }
     }
+    return { cleared, progress: 0 };
   }
-}
 
-function onKeyDown(e) {
-  if (!selected) return;
-  const [r, c] = selected;
-  const moves = { ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1] };
-  if (moves[e.key]) {
-    e.preventDefault();
-    const [dr, dc] = moves[e.key];
+  /** Moves the selection by (dr, dc). Returns the new selection highlight map. */
+  function moveSelection(dr, dc) {
+    if (!selected) return null;
+    const [r, c] = selected;
     const nr = Math.max(0, Math.min(8, r + dr));
     const nc = Math.max(0, Math.min(8, c + dc));
-    getCell(nr, nc).focus();
+    return select(nr, nc);
   }
-  if (e.key === 'Backspace' || e.key === 'Delete') enterValue(r, c, 0);
-}
 
-function onInput(e) {
-  if (!selected) return;
-  const [r, c] = selected;
-  const val = e.target.value.replace(/[^1-9]/g, '');
-  e.target.value = '';
-  if (val) enterValue(r, c, parseInt(val));
-}
+  // ── Private helpers ──────────────────────────────────────────────────────
 
-function enterValue(r, c, n) {
-  if (puzzle[r][c] !== 0) return; // given cell
-  userGrid[r][c] = n;
-  const cell = getCell(r, c);
-  cell.value = n === 0 ? '' : n;
-  cell.classList.remove('error');
-  statusEl.textContent = '';
-  checkComplete();
-}
+  /**
+   * Builds a map of cell positions to their highlight class.
+   * This keeps highlight logic in one place.
+   * Returns: { "r,c": 'selected'|'same-num'|'peer'|'' }
+   */
+  function buildHighlightMap(r, c) {
+    const map = {};
+    const num = getCell(r, c);
+    const peers = SudokuEngine.getPeers(r, c);
+    const peerSet = new Set(peers.map(([pr, pc]) => `${pr},${pc}`));
 
-function checkComplete() {
-  for (let r = 0; r < 9; r++)
-    for (let c = 0; c < 9; c++)
-      if (userGrid[r][c] !== solution[r][c]) return;
-  statusEl.textContent = '🎉 Congratulations! Puzzle solved!';
-}
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 9; j++) {
+        const key     = `${i},${j}`;
+        const cellNum = getCell(i, j);
+        if (i === r && j === c) {
+          map[key] = 'selected';
+        } else if (peerSet.has(key)) {
+          map[key] = (num !== 0 && cellNum === num) ? 'same-num' : 'peer';
+        } else {
+          map[key] = (num !== 0 && cellNum === num) ? 'same-num' : '';
+        }
+      }
+    }
+    return map;
+  }
 
-// ─── Controls ─────────────────────────────────────────────────────────────────
+  /**
+   * After a correct placement at (r, c), returns any groups (row/col/box)
+   * where every cell now matches the solution.
+   */
+  function findNewlyCompletedGroups(r, c) {
+    const { row, col, box } = SudokuEngine.getGroups(r, c);
+    const completed = [];
+    const groupSolved = cells =>
+      cells.every(([ri, ci]) => getCell(ri, ci) === solution[ri][ci]);
+    if (groupSolved(row)) completed.push(row);
+    if (groupSolved(col)) completed.push(col);
+    if (groupSolved(box)) completed.push(box);
+    return completed;
+  }
 
-function newGame() {
-  statusEl.textContent = 'Generating…';
+  function formatTime(sec) {
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
+
+  /** Returns a plain-object copy of the current public state. */
+  function snapshot() {
+    return {
+      puzzle:   puzzle.map(row => [...row]),
+      userGrid: userGrid.map(row => [...row]),
+      diffName,
+      mistakes,
+      progress: computeProgress(),
+    };
+  }
+
+  // ── Public API ───────────────────────────────────────────────────────────
+  return {
+    start,
+    select,
+    enterValue,
+    check,
+    autoSolve,
+    clear,
+    moveSelection,
+    getSelected: () => selected ? [...selected] : null,
+    getDiffName: () => diffName,
+    getMistakes: () => mistakes,
+    isGameOver:  () => gameOver,
+    formatTime:  (s) => formatTime(s ?? timerSec),
+  };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYER 3 — BoardUI
+   Only responsibility: read GameState results and update the DOM.
+   Never mutates game state directly.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const BoardUI = (() => {
+
+  // ── DOM references ───────────────────────────────────────────────────────
+  const boardEl       = document.getElementById('board');
+  const statusEl      = document.getElementById('status');
+  const valDifficulty = document.getElementById('val-difficulty');
+  const valTimer      = document.getElementById('val-timer');
+  const valMistakes   = document.getElementById('val-mistakes');
+  const valProgress   = document.getElementById('val-progress');
+  const overlay       = document.getElementById('complete-overlay');
+  const completeStats = document.getElementById('complete-stats');
+
+  let statusTimeout = null;
+
+  // ── Cell helpers ─────────────────────────────────────────────────────────
+
+  function getCell(r, c) {
+    return boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+  }
+
+  /** Triggers an animation class on a cell, removing it when done. */
+  function animateCell(cell, cls) {
+    cell.classList.remove(cls);
+    void cell.offsetWidth; // force reflow so the animation restarts
+    cell.classList.add(cls);
+    cell.addEventListener('animationend', () => cell.classList.remove(cls), { once: true });
+  }
+
+  // ── Board rendering ──────────────────────────────────────────────────────
+
+  function buildBoard(snapshot) {
+    boardEl.innerHTML = '';
+    const { puzzle, userGrid } = snapshot;
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const cell = document.createElement('input');
+        cell.type      = 'text';
+        cell.maxLength = 1;
+        cell.className = 'cell';
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+
+        if (puzzle[r][c] !== 0) {
+          cell.value = puzzle[r][c];
+          cell.classList.add('given');
+          cell.readOnly = true;
+        }
+
+        // Attach cell-level events via the InputHandler (registered below)
+        cell.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          InputHandler.onCellClick(r, c, cell);
+        });
+        cell.addEventListener('keydown', InputHandler.onKeyDown);
+        cell.addEventListener('input',   InputHandler.onCellInput);
+
+        boardEl.appendChild(cell);
+      }
+    }
+  }
+
+  // ── Highlight rendering ──────────────────────────────────────────────────
+
+  /**
+   * Applies a highlight map (as returned by GameState.select / enterValue)
+   * to all cells in one pass.
+   */
+  function applyHighlights(map) {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const cell = getCell(r, c);
+        if (!cell) continue;
+        cell.classList.remove('selected', 'peer', 'same-num');
+        const cls = map[`${r},${c}`];
+        if (cls) cell.classList.add(cls);
+      }
+    }
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll('.cell').forEach(cell =>
+      cell.classList.remove('selected', 'peer', 'same-num')
+    );
+    highlightNumpad(0);
+  }
+
+  // ── Info panel ───────────────────────────────────────────────────────────
+
+  function updateInfoPanel({ diffName, mistakes, progress }) {
+    if (diffName  !== undefined) valDifficulty.textContent = diffName;
+    if (mistakes  !== undefined) valMistakes.textContent   = mistakes;
+    if (progress  !== undefined) valProgress.textContent   = `${progress}%`;
+  }
+
+  function onTimerTick(sec) {
+    valTimer.textContent = GameState.formatTime(sec);
+  }
+
+  // ── Numpad ───────────────────────────────────────────────────────────────
+
+  function highlightNumpad(n) {
+    document.querySelectorAll('.num-btn').forEach(btn =>
+      btn.classList.toggle('active-num', parseInt(btn.dataset.n) === n && n !== 0)
+    );
+  }
+
+  // ── Status bar ───────────────────────────────────────────────────────────
+
+  function setStatus(msg, color = '') {
+    clearTimeout(statusTimeout);
+    statusEl.style.color = color;
+    statusEl.textContent = msg;
+    if (msg) {
+      statusTimeout = setTimeout(() => {
+        statusEl.classList.add('fade');
+        setTimeout(() => {
+          statusEl.textContent = '';
+          statusEl.classList.remove('fade');
+        }, 300);
+      }, 2500);
+    }
+  }
+
+  // ── Entry result rendering ───────────────────────────────────────────────
+
+  /**
+   * Receives the result object from GameState.enterValue and updates
+   * all relevant parts of the UI.
+   */
+  function applyEntryResult(result) {
+    if (!result.ok) return;
+
+    const cell = getCell(result.r, result.c);
+    cell.classList.remove('error', 'pop', 'shake');
+    cell.value = result.n === 0 ? '' : result.n;
+
+    if (result.erased) {
+      applyHighlights(result.highlights);
+      highlightNumpad(0);
+      updateInfoPanel({ progress: result.progress });
+      setStatus('');
+      return;
+    }
+
+    if (!result.correct) {
+      cell.classList.add('error');
+      animateCell(cell, 'shake');
+      updateInfoPanel({ mistakes: result.mistakes });
+      setStatus(
+        `❌ That's not right — ${result.mistakes} mistake${result.mistakes !== 1 ? 's' : ''}`,
+        '#e74c3c'
+      );
+    } else {
+      animateCell(cell, 'pop');
+      setStatus('');
+      for (const group of result.completedGroups) flashGroup(group);
+    }
+
+    applyHighlights(result.highlights);
+    highlightNumpad(result.n);
+    updateInfoPanel({ progress: result.progress });
+
+    if (result.complete) showCompletionOverlay(result);
+  }
+
+  // ── Group completion flash ────────────────────────────────────────────────
+
+  function flashGroup(cells) {
+    for (const [r, c] of cells) {
+      animateCell(getCell(r, c), 'group-done');
+    }
+  }
+
+  // ── Completion overlay ───────────────────────────────────────────────────
+
+  function showCompletionOverlay({ finalTime }) {
+    completeStats.textContent =
+      `Difficulty: ${GameState.getDiffName()} · Time: ${finalTime} · Mistakes: ${GameState.getMistakes()}`;
+    setTimeout(() => overlay.classList.add('show'), 400);
+  }
+
+  function hideCompletionOverlay() {
+    overlay.classList.remove('show');
+  }
+
+  // ── New-game rendering ───────────────────────────────────────────────────
+
+  function renderNewGame(snapshot) {
+    hideCompletionOverlay();
+    clearHighlights();
+    buildBoard(snapshot);
+    valTimer.textContent = '0:00';
+    updateInfoPanel({
+      diffName: snapshot.diffName,
+      mistakes: 0,
+      progress: 0,
+    });
+    setStatus('');
+  }
+
+  // ── Check result rendering ───────────────────────────────────────────────
+
+  function applyCheckResult({ errors, correct, allFilled }) {
+    // Clear previous error marks
+    document.querySelectorAll('.cell.error').forEach(c => c.classList.remove('error'));
+
+    for (const [r, c] of errors) getCell(r, c).classList.add('error');
+
+    if (errors.length === 0) {
+      setStatus(allFilled ? '🎉 Puzzle solved!' : '✅ No mistakes so far!', '#27ae60');
+    } else {
+      setStatus(`❌ ${errors.length} mistake${errors.length > 1 ? 's' : ''} found.`, '#e74c3c');
+    }
+  }
+
+  // ── Auto-solve rendering ─────────────────────────────────────────────────
+
+  function applyAutoSolve({ grid }) {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const cell = getCell(r, c);
+        if (!cell.classList.contains('given')) {
+          cell.value = grid[r][c];
+          cell.classList.remove('error');
+        }
+      }
+    }
+    updateInfoPanel({ progress: 100 });
+    setStatus('🔓 Puzzle solved automatically.', '#e67e22');
+  }
+
+  // ── Clear rendering ──────────────────────────────────────────────────────
+
+  function applyClear({ cleared }) {
+    for (const [r, c] of cleared) {
+      const cell = getCell(r, c);
+      cell.value = '';
+      cell.classList.remove('error');
+    }
+    updateInfoPanel({ progress: 0 });
+    setStatus('');
+    // Re-apply highlights for current selection
+    const sel = GameState.getSelected();
+    if (sel) {
+      const map = GameState.select(sel[0], sel[1]);
+      applyHighlights(map);
+    }
+  }
+
+  return {
+    buildBoard,
+    renderNewGame,
+    applyHighlights,
+    applyEntryResult,
+    applyCheckResult,
+    applyAutoSolve,
+    applyClear,
+    highlightNumpad,
+    setStatus,
+    onTimerTick,
+    getCell,
+  };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYER 4 — InputHandler
+   Translates raw DOM events into GameState calls.
+   One place for all keyboard and click logic.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const InputHandler = (() => {
+
+  const ARROW_DELTAS = {
+    ArrowUp:    [-1,  0],
+    ArrowDown:  [ 1,  0],
+    ArrowLeft:  [ 0, -1],
+    ArrowRight: [ 0,  1],
+  };
+
+  function handleDigit(n) {
+    const sel = GameState.getSelected();
+    if (!sel || GameState.isGameOver()) return;
+    const result = GameState.enterValue(sel[0], sel[1], n);
+    BoardUI.applyEntryResult(result);
+    // Keep focus on the cell after numpad tap
+    BoardUI.getCell(sel[0], sel[1])?.focus();
+  }
+
+  function handleMove(dr, dc) {
+    const map = GameState.moveSelection(dr, dc);
+    if (!map) return;
+    const sel = GameState.getSelected();
+    BoardUI.applyHighlights(map);
+    const num = /* read the cell value from the grid */ (() => {
+      // We need the value at the new selection to highlight the numpad.
+      // GameState exposes this via the highlight map key 'selected'.
+      // The simplest approach: read it from the DOM after the map is applied.
+      return null;
+    })();
+    const cell = BoardUI.getCell(sel[0], sel[1]);
+    if (cell) {
+      const n = parseInt(cell.value) || 0;
+      BoardUI.highlightNumpad(n);
+      cell.focus();
+    }
+  }
+
+  /** Shared key handler — used by both cell keydown and the document fallback. */
+  function handleKey(e) {
+    if (GameState.isGameOver() && !ARROW_DELTAS[e.key]) return;
+
+    if (ARROW_DELTAS[e.key]) {
+      e.preventDefault();
+      const [dr, dc] = ARROW_DELTAS[e.key];
+      handleMove(dr, dc);
+      return;
+    }
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      handleDigit(0);
+      return;
+    }
+
+    if (/^[1-9]$/.test(e.key)) {
+      e.preventDefault();
+      handleDigit(parseInt(e.key));
+    }
+  }
+
+  // ── Event handlers attached to cells ─────────────────────────────────────
+
+  function onCellClick(r, c, cell) {
+    const map = GameState.select(r, c);
+    BoardUI.applyHighlights(map);
+    const n = parseInt(cell.value) || 0;
+    BoardUI.highlightNumpad(n);
+    cell.focus();
+  }
+
+  function onKeyDown(e) {
+    handleKey(e);
+  }
+
+  /** Handles IME / soft-keyboard input on mobile. */
+  function onCellInput(e) {
+    if (GameState.isGameOver()) { e.target.value = ''; return; }
+    const val = e.target.value.replace(/[^1-9]/g, '');
+    e.target.value = '';
+    if (val) handleDigit(parseInt(val));
+  }
+
+  // ── Global fallback (when focus is outside a cell) ────────────────────────
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.classList.contains('cell')) return; // cell handler takes over
+    handleKey(e);
+  });
+
+  // ── Numpad buttons ────────────────────────────────────────────────────────
+
+  document.querySelectorAll('.num-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleDigit(parseInt(btn.dataset.n)));
+  });
+
+  return { onCellClick, onKeyDown, onCellInput };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WIRING — top-level event handlers and bootstrap
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function startNewGame(diffName) {
+  BoardUI.setStatus('Generating…');
+  // Defer so the browser paints the status message before the blocking solve
   setTimeout(() => {
-    solution = generateSolution();
-    puzzle   = createPuzzle(solution, 36);
-    userGrid = puzzle.map(row => [...row]);
-    selected = null;
-    buildBoard();
-    statusEl.textContent = '';
+    try {
+      const snapshot = GameState.start(diffName, BoardUI.onTimerTick);
+      BoardUI.renderNewGame(snapshot);
+    } catch (err) {
+      // generateSolution very rarely fails; surface a friendly message
+      BoardUI.setStatus('⚠️ Generation failed. Retrying…', '#e67e22');
+      setTimeout(() => startNewGame(diffName), 100);
+    }
   }, 30);
 }
 
-document.getElementById('btn-new').addEventListener('click', newGame);
-
-document.getElementById('btn-check').addEventListener('click', () => {
-  let errors = 0;
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (puzzle[r][c] !== 0) continue;
-      const cell = getCell(r, c);
-      if (userGrid[r][c] !== 0 && userGrid[r][c] !== solution[r][c]) {
-        cell.classList.add('error');
-        errors++;
-      } else {
-        cell.classList.remove('error');
-      }
-    }
-  }
-  statusEl.textContent = errors === 0
-    ? (userGrid.flat().includes(0) ? '✅ No mistakes so far!' : '🎉 Puzzle solved!')
-    : `❌ ${errors} mistake${errors > 1 ? 's' : ''} found.`;
-});
-
-document.getElementById('btn-solve').addEventListener('click', () => {
-  const copy = puzzle.map(row => [...row]);
-  solvePuzzle(copy);
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      userGrid[r][c] = copy[r][c];
-      if (puzzle[r][c] === 0) {
-        const cell = getCell(r, c);
-        cell.value = copy[r][c];
-        cell.classList.remove('error');
-      }
-    }
-  }
-  statusEl.textContent = '🔓 Puzzle solved automatically.';
-});
-
-document.getElementById('btn-clear').addEventListener('click', () => {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (puzzle[r][c] === 0) {
-        userGrid[r][c] = 0;
-        const cell = getCell(r, c);
-        cell.value = '';
-        cell.classList.remove('error');
-      }
-    }
-  }
-  statusEl.textContent = '';
-});
-
-document.querySelectorAll('.num-btn').forEach(btn => {
+// Difficulty selector
+document.querySelectorAll('.diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    if (!selected) return;
-    const [r, c] = selected;
-    enterValue(r, c, parseInt(btn.dataset.n));
-    getCell(r, c).focus();
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    startNewGame(btn.textContent.trim());
   });
 });
 
-// ─── Start ────────────────────────────────────────────────────────────────────
-newGame();
+// Control buttons
+document.getElementById('btn-new').addEventListener('click', () => {
+  startNewGame(GameState.getDiffName());
+});
+
+document.getElementById('btn-check').addEventListener('click', () => {
+  if (GameState.isGameOver()) return;
+  BoardUI.applyCheckResult(GameState.check());
+});
+
+document.getElementById('btn-solve').addEventListener('click', () => {
+  if (GameState.isGameOver()) return;
+  BoardUI.applyAutoSolve(GameState.autoSolve());
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (GameState.isGameOver()) return;
+  BoardUI.applyClear(GameState.clear());
+});
+
+document.getElementById('btn-new-overlay').addEventListener('click', () => {
+  startNewGame(GameState.getDiffName());
+});
+
+// Start
+startNewGame('Medium');
 </script>
 </body>
 </html>
