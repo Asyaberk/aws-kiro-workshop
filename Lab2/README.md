@@ -1,3 +1,5 @@
+LAB 2 - Creating a basic and enhanced web application
+
 # Sudoku
 
 A browser-based Sudoku game built as a single self-contained HTML file. No dependencies, no build step — just open and play.
